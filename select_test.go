@@ -1,5 +1,3 @@
-// @TODO(gotnospirit) add test on readKey, readChoice
-
 package messageformat
 
 import (
@@ -58,7 +56,7 @@ func TestSelect(t *testing.T) {
 		t,
 		"{VAR,select,other{succeed}}",
 		map[string]interface{}{"VAR": true},
-		"toString: Unsupported type: bool",
+		"ValueStr: Unsupported type: bool",
 	)
 }
 

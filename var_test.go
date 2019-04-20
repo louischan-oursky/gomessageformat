@@ -1,5 +1,3 @@
-// @TODO(gotnospirit) add test on readVar
-
 package messageformat
 
 import (
@@ -57,7 +55,7 @@ func TestVar(t *testing.T) {
 		t,
 		"{VAR}",
 		map[string]interface{}{"VAR": true},
-		"toString: Unsupported type: bool",
+		"ValueStr: Unsupported type: bool",
 	)
 }
 

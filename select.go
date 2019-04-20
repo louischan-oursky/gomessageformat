@@ -5,84 +5,100 @@ import (
 	"errors"
 )
 
-type selectExpr struct {
-	key     string
-	choices map[string]*node
+type Varnamer interface {
+	Varname() string
 }
 
-func parseSelect(varname string, ptr_compiler *Parser, char rune, start, end int, ptr_input *[]rune) (Expression, int, error) {
-	result := new(selectExpr)
-	result.key = varname
-	result.choices = make(map[string]*node)
+type selectParser interface {
+	parse(p *Parser, skipper SelectSkipper,
+		char rune, start, end int, input []rune) (int, error)
+}
 
-	if PartChar != char {
-		return nil, start, errors.New("MalformedOption")
+type Select struct {
+	Container
+	varname string
+	Choices map[string]Node
+	Other   Node
+}
+
+func newSelect(parent Node, varname string) *Select {
+	nd := &Select{
+		varname: varname,
+		Choices: make(map[string]Node),
 	}
+	parent.Add(nd)
+	return nd
+}
 
-	hasOtherChoice := false
+func (nd *Select) parse(p *Parser, skipper SelectSkipper,
+	char rune, start, end int, input []rune) (int, error) {
+	if char != PartChar {
+		return start, errors.New("MalformedOption")
+	}
 
 	pos := start + 1
 
 	for pos < end {
-		key, char, i, err := readKey(char, pos, end, ptr_input)
+		key, char, i, err := readKey(char, pos, end, input)
 
-		if nil != err {
-			return nil, i, err
-		} else if ':' == char {
-			return nil, i, errors.New("UnexpectedExtension")
+		if err != nil {
+			return i, err
+		}
+		if char == ':' {
+			return i, errors.New("UnexpectedExtension")
 		}
 
-		if "other" == key {
-			hasOtherChoice = true
+		choice, char, i, err := p.readChoice(nd, char, i, end, input)
+		if err != nil {
+			return i, err
 		}
 
-		choice, char, i, err := readChoice(ptr_compiler, char, i, end, ptr_input)
-		if nil != err {
-			return nil, i, err
+		if key == "other" {
+			nd.Other = choice
+		} else {
+			if skipper == nil || !skipper.Skip(key) {
+				nd.Choices[key] = choice
+			}
 		}
 
-		result.choices[key] = choice
 		pos = i
 
-		if CloseChar == char {
+		if char == CloseChar {
 			break
 		}
 	}
 
-	if !hasOtherChoice {
-		return nil, pos, errors.New("MissingMandatoryChoice")
+	if nd.Other == nil {
+		return pos, errors.New("MissingMandatoryChoice")
 	}
-	return result, pos, nil
+	return pos, nil
 }
 
-// formatSelect is the format function associated with the "select" type.
-//
+func (nd *Select) Varname() string { return nd.varname }
+func (nd *Select) Type() string    { return "select" }
+
 // It will falls back to the "other" choice if :
 // - its key can't be found in the given map
 // - its string representation is not a key of the given map
 //
 // It will returns an error if :
 // - the associated value can't be convert to string (i.e. bool, ...)
-func formatSelect(expr Expression, ptr_output *bytes.Buffer, data *map[string]interface{}, ptr_mf *MessageFormat, _ string) error {
-	o := expr.(*selectExpr)
-
-	value, err := toString(*data, o.key)
-	if nil != err {
+func (nd *Select) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ string) error {
+	value, err := data.ValueStr(nd.Varname())
+	if err != nil {
 		return err
 	}
 
-	choice, ok := o.choices[value]
+	choice, ok := nd.Choices[value]
 	if !ok {
-		choice = o.choices["other"]
+		choice = nd.Other
 	}
-	return choice.format(ptr_output, data, ptr_mf, value)
+	return choice.Format(mf, output, data, value)
 }
 
-func readKey(char rune, start, end int, ptr_input *[]rune) (string, rune, int, error) {
-	char, pos := whitespace(start, end, ptr_input)
+func readKey(char rune, start, end int, input []rune) (string, rune, int, error) {
+	char, pos := whitespace(start, end, input)
 	fc_pos, lc_pos := pos, pos
-
-	input := *ptr_input
 
 	for pos < end {
 		switch char {
@@ -90,7 +106,7 @@ func readKey(char rune, start, end int, ptr_input *[]rune) (string, rune, int, e
 			lc_pos = pos + 1
 
 		case ' ', '\r', '\n', '\t':
-			char, pos = whitespace(pos+1, end, ptr_input)
+			char, pos = whitespace(pos+1, end, input)
 			return string(input[fc_pos:lc_pos]), char, pos, nil
 
 		case ':', PartChar, CloseChar, OpenChar:
@@ -109,25 +125,24 @@ func readKey(char rune, start, end int, ptr_input *[]rune) (string, rune, int, e
 	return "", char, pos, errors.New("UnbalancedBraces")
 }
 
-func readChoice(ptr_compiler *Parser, char rune, pos, end int, ptr_input *[]rune) (*node, rune, int, error) {
-	if OpenChar != char {
+func (p *Parser) readChoice(parent Node, char rune, pos, end int, input []rune) (*Container, rune, int, error) {
+	if char != OpenChar {
 		return nil, char, pos, errors.New("MissingChoiceContent")
 	}
 
-	choice := new(node)
-
-	pos, _, err := ptr_compiler.parse(pos+1, end, ptr_input, choice)
-	if nil != err {
+	choice := newContainer(parent)
+	pos, _, err := p.parse(pos+1, end, input, choice)
+	if err != nil {
 		return nil, char, pos, err
 	}
 
 	pos++
 	if pos < end {
-		char = (*ptr_input)[pos]
+		char = input[pos]
 	}
 
 	if isWhitespace(char) {
-		char, pos = whitespace(pos+1, end, ptr_input)
+		char, pos = whitespace(pos+1, end, input)
 	}
 	return choice, char, pos, nil
 }

@@ -4,7 +4,8 @@ import (
 	"fmt"
 )
 
-// A parseError is used to embed an error message occurring while the processing an input.
+// parseError used to embed an error message occurring
+// while the processing an input.
 type parseError struct {
 	msg string // description of the error
 	pos int    // offset read

@@ -4,25 +4,30 @@ import (
 	"bytes"
 )
 
-func formatLiteral(expr Expression, ptr_output *bytes.Buffer, _ *map[string]interface{}, _ *MessageFormat, pound string) error {
-	content := expr.([]string)
+type Literal struct {
+	Container
+	Varname string
+	Content []string
+}
 
-	for _, c := range content {
-		if "" != c {
-			ptr_output.WriteString(c)
-		} else if "" != pound {
-			ptr_output.WriteString(pound)
+func (nd *Literal) Type() string { return "literal" }
+
+func (nd *Literal) Format(_ *MessageFormat, output *bytes.Buffer, data Data, pound string) error {
+	for _, c := range nd.Content {
+		if c != "" {
+			output.WriteString(c)
+		} else if pound != "" {
+			output.WriteString(pound)
 		} else {
-			ptr_output.WriteRune(PoundChar)
+			output.WriteRune(PoundChar)
 		}
 	}
 	return nil
 }
 
-func parseLiteral(start, end int, ptr_input *[]rune) []string {
+func parseLiteral(parent Node, start, end int, input []rune) {
 	var items []int
 
-	input := *ptr_input
 	escaped := false
 
 	s, e := start, start
@@ -72,9 +77,14 @@ func parseLiteral(start, end int, ptr_input *[]rune) []string {
 	}
 
 	n := len(items)
-	result := make([]string, n/2)
+	content := make([]string, n/2)
 	for i := 0; i < n; i += 2 {
-		result[i/2] = string(input[items[i]:items[i+1]])
+		content[i/2] = string(input[items[i]:items[i+1]])
 	}
-	return result
+
+	child := &Literal{Content: content}
+	if sn, ok := parent.(Varnamer); ok {
+		child.Varname = sn.Varname()
+	}
+	parent.Add(child)
 }

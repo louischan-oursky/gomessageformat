@@ -1,5 +1,3 @@
-// @TODO(gotnospirit) add test on readOffset
-
 package messageformat
 
 import (
@@ -35,7 +33,7 @@ func TestPlural(t *testing.T) {
 		t,
 		"{NUM,plural,other{b}}",
 		map[string]interface{}{"NUM": true},
-		"toString: Unsupported type: bool",
+		"ValueStr: Unsupported type: bool",
 	)
 }
 

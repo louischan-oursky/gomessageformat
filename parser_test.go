@@ -1,5 +1,3 @@
-// @TODO(gotnospirit) add test on parseExpression, parse, NewWithCulture
-
 package messageformat
 
 import (
@@ -18,17 +16,17 @@ type Expectation struct {
 }
 
 func doTest(t *testing.T, data Test) {
-	if o, err := New(); nil != err {
+	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", data.input, err)
 	} else {
 		mf, err := o.Parse(data.input)
 
-		if nil != err {
+		if err != nil {
 			t.Errorf("`%s` threw <%s>", data.input, err)
 		} else {
 			for _, ex := range data.expects {
-				result, err := mf.FormatMap(ex.data)
-				if nil != err {
+				result, err := mf.FormatData(ex.data)
+				if err != nil {
 					t.Errorf("`%s` threw <%s>", data.input, err)
 				} else if result != ex.output {
 					t.Errorf("Expecting <%v> but got <%v>", ex.output, result)
@@ -41,22 +39,22 @@ func doTest(t *testing.T, data Test) {
 }
 
 func doTestException(t *testing.T, input string, data map[string]interface{}, expected string) {
-	if o, err := New(); nil != err {
+	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", input, err)
 	} else {
 		mf, err := o.Parse(input)
 
-		if nil != err {
+		if err != nil {
 			doTestCompileError(t, input, expected, err)
 		} else {
-			_, err := mf.FormatMap(data)
+			_, err := mf.FormatData(data)
 			doTestCompileError(t, input, expected, err)
 		}
 	}
 }
 
 func doTestParseException(t *testing.T, input, expected string) {
-	if o, err := New(); nil != err {
+	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", input, err)
 	} else {
 		_, err := o.Parse(input)
@@ -89,7 +87,7 @@ func doBenchmarkExecute(b *testing.B, input, expected string, data map[string]in
 	mf, _ = o.Parse(input)
 
 	for n := 0; n < b.N; n++ {
-		result, _ := mf.FormatMap(data)
+		result, _ := mf.FormatData(data)
 
 		if result != expected {
 			b.Errorf("Expecting <%s> but got <%s>", expected, result)
@@ -337,46 +335,4 @@ func TestMultiline(t *testing.T) {
 			{map[string]interface{}{"NUM_RESULTS": 2, "NUM_CATEGORIES": 2}, "They found 2 results in 2 categories."},
 		},
 	})
-}
-
-func TestRegister(t *testing.T) {
-	o, err := New()
-	if nil != err {
-		t.Errorf("Unexpected parse failure: `%s`", err.Error())
-	} else {
-		// checks default types can't be overloaded
-		err := o.Register("select", nil, nil)
-		doTestError(t, "ParserAlreadyRegistered", err)
-
-		err = o.Register("selectordinal", nil, nil)
-		doTestError(t, "ParserAlreadyRegistered", err)
-
-		err = o.Register("plural", nil, nil)
-		doTestError(t, "ParserAlreadyRegistered", err)
-
-		// nil parseFunc and/or formatFunc are accepted (even if parsing will leads to an error!)
-		err = o.Register("noparse", nil, nil)
-		if nil != err {
-			t.Errorf("Unexpected error: %s", err.Error())
-		}
-
-		// checks custom types can't be overloaded too
-		err = o.Register("noparse", nil, nil)
-		doTestError(t, "ParserAlreadyRegistered", err)
-
-		// checks that a nil parseFunc leads to an "UndefinedParseFunc" error while parsing
-		input := `{N,noparse}`
-		_, err = o.Parse(input)
-		doTestCompileError(t, input, "ParseError: `UndefinedParseFunc: `noparse`` at 10", err)
-
-		// checks that a nil formatFunc leads to an "UndefinedFormatFunc" error while formatting
-		o.Register("noeval", func(varname string, _ *Parser, _ rune, start int, _ int, _ *[]rune) (Expression, int, error) {
-			return varname, start, nil
-		}, nil)
-
-		input = `{N,noeval}`
-		mf, _ := o.Parse(input)
-		_, err = mf.Format()
-		doTestCompileError(t, input, "UndefinedFormatFunc: `noeval`", err)
-	}
 }

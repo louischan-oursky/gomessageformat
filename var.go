@@ -5,19 +5,27 @@ import (
 	"errors"
 )
 
-func formatVar(expr Expression, ptr_output *bytes.Buffer, data *map[string]interface{}, _ *MessageFormat, _ string) error {
-	value, err := toString(*data, expr.(string))
-	if nil != err {
-		return err
-	}
-	ptr_output.WriteString(value)
-	return nil
+type Var struct {
+	Container
+	Varname string
 }
 
-func readVar(start, end int, ptr_input *[]rune) (string, rune, int, error) {
-	char, pos := whitespace(start, end, ptr_input)
+func (nd *Var) Type() string { return "var" }
+
+func (nd *Var) Format(_ *MessageFormat, output *bytes.Buffer, data Data, value string) (err error) {
+	if value == "" {
+		value, err = data.ValueStr(nd.Varname)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = output.WriteString(value)
+	return err
+}
+
+func readVar(start, end int, input []rune) (string, rune, int, error) {
+	char, pos := whitespace(start, end, input)
 	fc_pos, lc_pos := pos, pos
-	input := *ptr_input
 
 	for pos < end {
 		switch char {
@@ -38,7 +46,7 @@ func readVar(start, end int, ptr_input *[]rune) (string, rune, int, error) {
 			}
 
 		case ' ', '\r', '\n', '\t':
-			char, pos = whitespace(pos+1, end, ptr_input)
+			char, pos = whitespace(pos+1, end, input)
 
 		case PartChar, CloseChar:
 			return string(input[fc_pos:lc_pos]), char, pos, nil

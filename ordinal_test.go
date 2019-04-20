@@ -22,7 +22,7 @@ func TestSelectOrdinal(t *testing.T) {
 		t,
 		"{VAR,selectordinal,other{succeed}}",
 		map[string]interface{}{"VAR": true},
-		"toString: Unsupported type: bool",
+		"ValueStr: Unsupported type: bool",
 	)
 }
 

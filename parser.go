@@ -1,9 +1,9 @@
 package messageformat
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/gotnospirit/makeplural/plural"
+
+	"github.com/empirefox/makeplural/plural"
 )
 
 const (
@@ -12,31 +12,26 @@ const (
 	CloseChar  = '}'
 	PartChar   = ','
 	PoundChar  = '#'
+	EqualChar  = '='
 )
 
-type (
-	// parseFunc describes a function used to parse a subset of the input string into an expression.
-	parseFunc func(string, *Parser, rune, int, int, *[]rune) (Expression, int, error)
-	// formatFunc describes a function used to format an expression into the output buffer.
-	formatFunc func(Expression, *bytes.Buffer, *map[string]interface{}, *MessageFormat, string) error
-	// pluralFunc describes a function used to produce a named key when processing a plural or selectordinal expression.
-	pluralFunc func(interface{}, bool) string
+// pluralFunc describes a function used to produce a named key
+// when processing a plural or selectordinal node.
+type pluralFunc func(interface{}, bool) string
 
-	Parser struct {
-		parsers    map[string]parseFunc
-		formatters map[string]formatFunc
-		plural     pluralFunc
-	}
-)
+type Parser struct {
+	culture string
+	plural  pluralFunc
+}
 
 func (x *Parser) Parse(input string) (*MessageFormat, error) {
 	runes := []rune(input)
 	pos, end := 0, len(runes)
 
-	root := node{}
+	root := &Container{culture: x.culture}
 	for pos < end {
-		i, level, err := x.parse(pos, end, &runes, &root)
-		if nil != err {
+		i, level, err := x.parse(pos, end, runes, root)
+		if err != nil {
 			return nil, parseError{err.Error(), i}
 		} else if 0 != level {
 			return nil, parseError{"UnbalancedBraces", i}
@@ -44,56 +39,60 @@ func (x *Parser) Parse(input string) (*MessageFormat, error) {
 
 		pos = i
 	}
-	return &MessageFormat{root, x.formatters, x.plural}, nil
+	return &MessageFormat{root, x.plural}, nil
 }
 
-func (x *Parser) Register(key string, p parseFunc, f formatFunc) error {
-	if _, ok := x.parsers[key]; ok {
-		return fmt.Errorf("ParserAlreadyRegistered")
+func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, error) {
+	varname, char, pos, err := readVar(start, end, input)
+	if err != nil {
+		return pos, err
 	}
-	x.parsers[key] = p
-	x.formatters[key] = f
-	return nil
+	if varname == "" {
+		return pos, fmt.Errorf("MissingVarName")
+	}
+	if char == CloseChar {
+		parent.Add(&Var{Varname: varname})
+		return pos, nil
+	}
+
+	ctype, char, pos, err := readVar(pos+1, end, input)
+	if err != nil {
+		return pos, err
+	}
+
+	var sp selectParser
+	var skipper SelectSkipper
+	switch ctype {
+	case "select":
+		sp = newSelect(parent, varname)
+	case "selectordinal":
+		sp = newOrdinal(parent, varname)
+		skipper, err = NewPluralSkipper(x.culture, true, true)
+	case "plural":
+		sp = newPlural(parent, varname)
+		skipper, err = NewPluralSkipper(x.culture, false, true)
+	default:
+		return pos, fmt.Errorf("UnknownType: `%s`", ctype)
+	}
+	if err != nil {
+		return pos, err
+	}
+
+	pos, err = sp.parse(x, skipper, char, pos, end, input)
+	if err != nil {
+		return pos, err
+	}
+
+	if pos >= end || input[pos] != CloseChar {
+		return pos, fmt.Errorf("UnbalancedBraces")
+	}
+	return pos, nil
 }
 
-func (x *Parser) parseExpression(start, end int, ptr_input *[]rune) (string, Expression, int, error) {
-	varname, char, pos, err := readVar(start, end, ptr_input)
-	if nil != err {
-		return "", nil, pos, err
-	} else if "" == varname {
-		return "", nil, pos, fmt.Errorf("MissingVarName")
-	} else if CloseChar == char {
-		return "var", varname, pos, nil
-	}
-
-	ctype, char, pos, err := readVar(pos+1, end, ptr_input)
-	if nil != err {
-		return "", nil, pos, err
-	}
-
-	fn, ok := x.parsers[ctype]
-	if !ok {
-		return "", nil, pos, fmt.Errorf("UnknownType: `%s`", ctype)
-	} else if nil == fn {
-		return "", nil, pos, fmt.Errorf("UndefinedParseFunc: `%s`", ctype)
-	}
-
-	expr, pos, err := fn(varname, x, char, pos, end, ptr_input)
-	if nil != err {
-		return "", nil, pos, err
-	}
-
-	if pos >= end || CloseChar != (*ptr_input)[pos] {
-		return "", nil, pos, fmt.Errorf("UnbalancedBraces")
-	}
-	return ctype, expr, pos, nil
-}
-
-func (x *Parser) parse(start, end int, ptr_input *[]rune, parent *node) (int, int, error) {
+func (x *Parser) parse(start, end int, input []rune, nd Node) (int, int, error) {
 	pos := start
 	level := 0
 	escaped := false
-	input := *ptr_input
 
 loop:
 	for pos < end {
@@ -121,15 +120,13 @@ loop:
 				level++
 
 				if pos > start {
-					parent.add("literal", parseLiteral(start, pos, ptr_input))
+					parseLiteral(nd, start, pos, input)
 				}
 
-				ctype, child, i, err := x.parseExpression(pos+1, end, ptr_input)
-				if nil != err {
+				i, err := x.parseNode(nd, pos+1, end, input)
+				if err != nil {
 					return i, level, err
 				}
-
-				parent.add(ctype, child)
 
 				level--
 
@@ -143,29 +140,17 @@ loop:
 	}
 
 	if pos > start {
-		parent.add("literal", parseLiteral(start, pos, ptr_input))
+		parseLiteral(nd, start, pos, input)
 	}
 	return pos, level, nil
 }
 
 func NewWithCulture(name string) (*Parser, error) {
 	fn, err := plural.GetFunc(name)
-	if nil != err {
+	if err != nil {
 		return nil, err
 	}
-
-	result := new(Parser)
-
-	result.parsers = make(map[string]parseFunc)
-	result.formatters = make(map[string]formatFunc)
-	result.plural = fn
-
-	result.Register("literal", nil, formatLiteral)
-	result.Register("var", nil, formatVar)
-	result.Register("select", parseSelect, formatSelect)
-	result.Register("selectordinal", parseSelect, formatOrdinal)
-	result.Register("plural", parsePlural, formatPlural)
-	return result, nil
+	return &Parser{culture: name, plural: fn}, nil
 }
 
 func New() (*Parser, error) {

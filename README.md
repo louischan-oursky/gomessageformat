@@ -4,7 +4,7 @@ The messageformat package is a [Go](http://golang.org/) implementation of [ICU](
 
 ## Dependencies
 
-The messageformat package depends on the [makeplural](http://github.com/gotnospirit/makeplural) package to compute named keys based on ICU rules.
+The messageformat package depends on the [makeplural](http://github.com/empirefox/makeplural) package to compute named keys based on ICU rules.
 
 ## Todo
 
