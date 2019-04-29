@@ -67,10 +67,10 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, erro
 		sp = newSelect(parent, varname)
 	case "selectordinal":
 		sp = newOrdinal(parent, varname)
-		skipper, err = NewPluralSkipper(x.culture, true, true)
+		skipper, err = NewPluralSkipper(x.culture, true)
 	case "plural":
 		sp = newPlural(parent, varname)
-		skipper, err = NewPluralSkipper(x.culture, false, true)
+		skipper, err = NewPluralSkipper(x.culture, false)
 	default:
 		return pos, fmt.Errorf("UnknownType: `%s`", ctype)
 	}

@@ -11,17 +11,33 @@ type SelectSkipper interface {
 }
 
 type PluralSkipper struct {
-	skipNotPluralForms bool
-	m                  map[string]string
+	skipAll bool
+	m       map[string]string
 }
 
-func NewPluralSkipper(culture string, ordinal, skipNotPluralForms bool) (*PluralSkipper, error) {
+var othersMap map[string]bool
+
+func getOthersMap() map[string]bool {
+	if othersMap == nil {
+		othersMap = make(map[string]bool, len(plural.Others))
+		for _, c := range plural.Others {
+			othersMap[c] = true
+		}
+	}
+	return othersMap
+}
+
+func NewPluralSkipper(culture string, ordinal bool) (*PluralSkipper, error) {
+	if getOthersMap()[culture] {
+		return &PluralSkipper{skipAll: true}, nil
+	}
+
 	c, ok := plural.Cultures[culture]
 	if !ok {
 		return nil, fmt.Errorf("culture name not found from plural.Cultures: %s", culture)
 	}
 
-	s := PluralSkipper{skipNotPluralForms: skipNotPluralForms}
+	var s PluralSkipper
 	if ordinal {
 		s.m = c.Ordinal
 	} else {
@@ -35,9 +51,11 @@ func (s *PluralSkipper) Skip(k string) bool {
 	if k == "other" {
 		return false
 	}
-	_, ok := s.m[k]
-	if s.skipNotPluralForms {
-		return !ok
+
+	if s.skipAll {
+		return true
 	}
-	return ok
+
+	_, ok := s.m[k]
+	return !ok
 }
