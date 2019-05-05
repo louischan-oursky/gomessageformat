@@ -3,6 +3,7 @@ package messageformat
 import (
 	"fmt"
 
+	"github.com/empirefox/makeplural/cases"
 	"github.com/empirefox/makeplural/plural"
 )
 
@@ -12,7 +13,7 @@ type SelectSkipper interface {
 
 type PluralSkipper struct {
 	skipAll bool
-	m       map[string]string
+	m       map[string]*cases.Case
 }
 
 func NewPluralSkipper(culture string, ordinal bool) (*PluralSkipper, error) {
@@ -27,9 +28,9 @@ func NewPluralSkipper(culture string, ordinal bool) (*PluralSkipper, error) {
 
 	var s PluralSkipper
 	if ordinal {
-		s.m = c.Ordinal
+		s.m = c.Ordinal.ToMap()
 	} else {
-		s.m = c.Cardinal
+		s.m = c.Cardinal.ToMap()
 	}
 
 	return &s, nil
