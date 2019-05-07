@@ -4,25 +4,50 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 )
 
+type Equal struct {
+	Key  float64
+	Node Node
+}
+
+type Equals []Equal
+
+func (s Equals) Len() int           { return len(s) }
+func (s Equals) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s Equals) Less(i, j int) bool { return s[i].Key < s[j].Key }
+
 type Plural struct {
 	Select
-	Equals map[float64]Node
-	Offset int
+	EqualsMap map[float64]Node
+	Equals    Equals
+	Offset    int
 }
 
 func newPlural(parent Node, varname string) *Plural {
 	nd := &Plural{
 		Select: Select{
-			varname: varname,
-			Choices: make(map[string]Node),
+			varname:    varname,
+			ChoicesMap: make(map[string]Node, 5),
+			Choices:    make([]Choice, 0, 5),
 		},
-		Equals: make(map[float64]Node),
+		EqualsMap: make(map[float64]Node, 0),
+		Equals:    make(Equals, 0, 5),
 	}
 	parent.Add(nd)
 	return nd
+}
+
+// sort Choices
+func (s *Plural) Less(i, j int) bool {
+	return pluralForms[s.Choices[i].Key] < pluralForms[s.Choices[j].Key]
+}
+
+func (nd *Plural) addEqual(f64 float64, choice Node) {
+	nd.EqualsMap[f64] = choice
+	nd.Equals = append(nd.Equals, Equal{Key: f64, Node: choice})
 }
 
 func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
@@ -75,12 +100,16 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 			if err != nil {
 				return i, fmt.Errorf("invalid number key `%s`", key)
 			}
-			nd.Equals[f64] = choice
+			nd.addEqual(f64, choice)
 		} else if key == "other" {
 			nd.Other = choice
 		} else {
-			if skipper == nil || !skipper.Skip(key) {
-				nd.Choices[key] = choice
+			skip, err := skipper.Skip(key)
+			if err != nil {
+				return i, err
+			}
+			if !skip {
+				nd.addChoice(key, choice)
 			}
 		}
 		pos, char = i, c
@@ -93,6 +122,8 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 	if nd.Other == nil {
 		return pos, errors.New("MissingMandatoryChoice")
 	}
+
+	sort.Sort(nd.Equals)
 	return pos, nil
 }
 
@@ -117,15 +148,15 @@ func (nd *Plural) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ s
 	if iv, ok := data[key]; ok {
 		switch v := iv.(type) {
 		case int:
-			choice = nd.Equals[float64(v)]
+			choice = nd.EqualsMap[float64(v)]
 		case float64:
-			choice = nd.Equals[v]
+			choice = nd.EqualsMap[v]
 		case string:
 			f64, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				return fmt.Errorf("Plural: value not a number string: %s", iv)
 			}
-			choice = nd.Equals[f64]
+			choice = nd.EqualsMap[f64]
 		default:
 			return fmt.Errorf("Plural: Unsupported type for named key: %T", iv)
 		}
@@ -167,7 +198,7 @@ func (nd *Plural) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ s
 			if err != nil {
 				return err
 			}
-			choice = nd.Choices[key]
+			choice = nd.ChoicesMap[key]
 		}
 	}
 

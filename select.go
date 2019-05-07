@@ -3,6 +3,7 @@ package messageformat
 import (
 	"bytes"
 	"errors"
+	"sort"
 )
 
 type Varnamer interface {
@@ -10,24 +11,52 @@ type Varnamer interface {
 }
 
 type selectParser interface {
+	sort.Interface
 	parse(p *Parser, skipper SelectSkipper,
 		char rune, start, end int, input []rune) (int, error)
 }
 
+type Choice struct {
+	Key  string
+	Node Node
+}
+
 type Select struct {
 	Container
-	varname string
-	Choices map[string]Node
-	Other   Node
+	varname    string
+	ChoicesMap map[string]Node
+	Choices    []Choice
+	Other      Node
 }
 
 func newSelect(parent Node, varname string) *Select {
 	nd := &Select{
-		varname: varname,
-		Choices: make(map[string]Node),
+		varname:    varname,
+		ChoicesMap: make(map[string]Node, 5),
+		Choices:    make([]Choice, 0, 5),
 	}
 	parent.Add(nd)
 	return nd
+}
+
+// sort Choices
+func (s *Select) Len() int {
+	return len(s.Choices)
+}
+
+// sort Choices
+func (s *Select) Swap(i, j int) {
+	s.Choices[i], s.Choices[j] = s.Choices[j], s.Choices[i]
+}
+
+// sort Choices
+func (s *Select) Less(i, j int) bool {
+	return s.Choices[i].Key < s.Choices[j].Key
+}
+
+func (nd *Select) addChoice(key string, choice Node) {
+	nd.ChoicesMap[key] = choice
+	nd.Choices = append(nd.Choices, Choice{Key: key, Node: choice})
 }
 
 func (nd *Select) parse(p *Parser, skipper SelectSkipper,
@@ -56,8 +85,12 @@ func (nd *Select) parse(p *Parser, skipper SelectSkipper,
 		if key == "other" {
 			nd.Other = choice
 		} else {
-			if skipper == nil || !skipper.Skip(key) {
-				nd.Choices[key] = choice
+			skip, err := skipper.Skip(key)
+			if err != nil {
+				return i, err
+			}
+			if !skip {
+				nd.addChoice(key, choice)
 			}
 		}
 
@@ -89,7 +122,7 @@ func (nd *Select) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ s
 		return err
 	}
 
-	choice, ok := nd.Choices[value]
+	choice, ok := nd.ChoicesMap[value]
 	if !ok {
 		choice = nd.Other
 	}

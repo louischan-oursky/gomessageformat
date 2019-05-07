@@ -19,7 +19,7 @@ func doParse(input string) (*MessageFormat, error) {
 	if err != nil {
 		return nil, err
 	}
-	mf, err := o.Parse(input)
+	mf, err := o.Parse(input, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -3,19 +3,26 @@ package messageformat
 import (
 	"bytes"
 	"text/template"
+
+	"golang.org/x/text/language"
 )
 
 var Funcs = template.FuncMap{
-	"mfPluralNode": ParsePlural,
+	"mfPluralNode":         ParsePlural,
+	"mfPluralNodeWithData": ParsePluralWithData,
 }
 
-func ParsePlural(cultrue, input string) (Node, error) {
-	p, err := NewWithCulture(cultrue)
+func ParsePlural(culture language.Tag, input string) (Node, error) {
+	return ParsePluralWithData(culture, input, nil)
+}
+
+func ParsePluralWithData(culture language.Tag, input string, data interface{}) (Node, error) {
+	p, err := NewWithCulture(culture)
 	if err != nil {
 		return nil, err
 	}
 
-	mf, err := p.Parse(input)
+	mf, err := p.Parse(input, data)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +32,8 @@ func ParsePlural(cultrue, input string) (Node, error) {
 
 type Node interface {
 	Type() string
-	Culture() string
+	Culture() language.Tag
+	Data() interface{}
 	Root() Node
 	Parent() Node
 	Children() []Node
@@ -35,8 +43,20 @@ type Node interface {
 	setParent(parent Node)
 }
 
+type Root struct {
+	Container
+	culture language.Tag
+	data    interface{}
+}
+
+func (nd *Root) Type() string          { return "root" }
+func (nd *Root) Culture() language.Tag { return nd.culture }
+func (nd *Root) Data() interface{}     { return nd.data }
+func (nd *Root) Root() Node            { return nd }
+func (nd *Root) setRoot(root Node)     { panic("can not call Root.setRoot") }
+func (nd *Root) setParent(parent Node) { panic("can not call Root.setParent") }
+
 type Container struct {
-	culture  string
 	root     Node
 	parent   Node
 	children []Node
@@ -48,19 +68,10 @@ func newContainer(parent Node) *Container {
 	return child
 }
 
-func (nd *Container) Type() string { return "container" }
-func (nd *Container) Culture() string {
-	if nd.culture != "" {
-		return nd.culture
-	}
-	return nd.Root().Culture()
-}
-func (nd *Container) Root() Node {
-	if nd.root == nil {
-		return nd
-	}
-	return nd.root
-}
+func (nd *Container) Type() string          { return "container" }
+func (nd *Container) Culture() language.Tag { return nd.Root().Culture() }
+func (nd *Container) Data() interface{}     { return nd.Root().Data() }
+func (nd *Container) Root() Node            { return nd.root }
 func (nd *Container) Parent() Node          { return nd.parent }
 func (nd *Container) Children() []Node      { return nd.children }
 func (nd *Container) setRoot(root Node)     { nd.root = root }

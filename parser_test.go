@@ -19,7 +19,7 @@ func doTest(t *testing.T, data Test) {
 	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", data.input, err)
 	} else {
-		mf, err := o.Parse(data.input)
+		mf, err := o.Parse(data.input, nil)
 
 		if err != nil {
 			t.Errorf("`%s` threw <%s>", data.input, err)
@@ -42,7 +42,7 @@ func doTestException(t *testing.T, input string, data map[string]interface{}, ex
 	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", input, err)
 	} else {
-		mf, err := o.Parse(input)
+		mf, err := o.Parse(input, nil)
 
 		if err != nil {
 			doTestCompileError(t, input, expected, err)
@@ -57,7 +57,7 @@ func doTestParseException(t *testing.T, input, expected string) {
 	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", input, err)
 	} else {
-		_, err := o.Parse(input)
+		_, err := o.Parse(input, nil)
 		doTestCompileError(t, input, expected, err)
 	}
 }
@@ -84,7 +84,7 @@ func doTestError(t *testing.T, expected string, err error) {
 
 func doBenchmarkExecute(b *testing.B, input, expected string, data map[string]interface{}) (mf *MessageFormat) {
 	o, _ := New()
-	mf, _ = o.Parse(input)
+	mf, _ = o.Parse(input, nil)
 
 	for n := 0; n < b.N; n++ {
 		result, _ := mf.FormatData(data)

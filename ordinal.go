@@ -13,12 +13,18 @@ type Ordinal struct {
 func newOrdinal(parent Node, varname string) *Ordinal {
 	nd := &Ordinal{
 		Select: Select{
-			varname: varname,
-			Choices: make(map[string]Node),
+			varname:    varname,
+			ChoicesMap: make(map[string]Node, 5),
+			Choices:    make([]Choice, 0, 5),
 		},
 	}
 	parent.Add(nd)
 	return nd
+}
+
+// sort Choices
+func (s *Ordinal) Less(i, j int) bool {
+	return pluralForms[s.Choices[i].Key] < pluralForms[s.Choices[j].Key]
 }
 
 // It will returns an error if :
@@ -53,7 +59,7 @@ func (nd *Ordinal) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ 
 		if err != nil {
 			return err
 		}
-		choice = nd.Choices[key]
+		choice = nd.ChoicesMap[key]
 	}
 
 	if choice == nil {

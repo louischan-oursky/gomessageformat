@@ -2,8 +2,10 @@ package messageformat
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/empirefox/makeplural/plural"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -20,15 +22,15 @@ const (
 type pluralFunc func(interface{}, bool) string
 
 type Parser struct {
-	culture string
+	culture language.Tag
 	plural  pluralFunc
 }
 
-func (x *Parser) Parse(input string) (*MessageFormat, error) {
+func (x *Parser) Parse(input string, data interface{}) (*MessageFormat, error) {
 	runes := []rune(input)
 	pos, end := 0, len(runes)
 
-	root := &Container{culture: x.culture}
+	root := &Root{culture: x.culture, data: data}
 	for pos < end {
 		i, level, err := x.parse(pos, end, runes, root)
 		if err != nil {
@@ -65,6 +67,7 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, erro
 	switch ctype {
 	case "select":
 		sp = newSelect(parent, varname)
+		skipper = NothingSkipper{}
 	case "selectordinal":
 		sp = newOrdinal(parent, varname)
 		skipper, err = NewPluralSkipper(x.culture, true)
@@ -86,6 +89,8 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, erro
 	if pos >= end || input[pos] != CloseChar {
 		return pos, fmt.Errorf("UnbalancedBraces")
 	}
+
+	sort.Sort(sp)
 	return pos, nil
 }
 
@@ -145,14 +150,14 @@ loop:
 	return pos, level, nil
 }
 
-func NewWithCulture(name string) (*Parser, error) {
-	fn, err := plural.GetFunc(name)
+func NewWithCulture(culture language.Tag) (*Parser, error) {
+	fn, err := plural.GetFunc(culture)
 	if err != nil {
 		return nil, err
 	}
-	return &Parser{culture: name, plural: fn}, nil
+	return &Parser{culture: culture, plural: fn}, nil
 }
 
 func New() (*Parser, error) {
-	return NewWithCulture("en")
+	return NewWithCulture(language.English)
 }
