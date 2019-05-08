@@ -31,18 +31,20 @@ func newPlural(parent Node, varname string) *Plural {
 		Select: Select{
 			varname:    varname,
 			ChoicesMap: make(map[string]Node, 5),
-			Choices:    make([]Choice, 0, 5),
+			choices:    make([]Choice, 0, 5),
 		},
 		EqualsMap: make(map[float64]Node, 0),
 		Equals:    make(Equals, 0, 5),
 	}
-	parent.Add(nd)
+	AddChild(parent, nd)
 	return nd
 }
 
-// sort Choices
+func (nd *Plural) Type() string { return "plural" }
+
+// sort choices
 func (s *Plural) Less(i, j int) bool {
-	return pluralForms[s.Choices[i].Key] < pluralForms[s.Choices[j].Key]
+	return pluralForms[s.choices[i].Key] < pluralForms[s.choices[j].Key]
 }
 
 func (nd *Plural) addEqual(f64 float64, choice Node) {

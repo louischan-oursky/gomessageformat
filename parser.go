@@ -53,7 +53,7 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, erro
 		return pos, fmt.Errorf("MissingVarName")
 	}
 	if char == CloseChar {
-		parent.Add(&Var{Varname: varname})
+		AddChild(parent, &Var{Varname: varname})
 		return pos, nil
 	}
 

@@ -6,12 +6,14 @@ import (
 	"sort"
 )
 
-type Varnamer interface {
+type SelectNode interface {
+	sort.Interface
 	Varname() string
+	Choices() []Choice
 }
 
 type selectParser interface {
-	sort.Interface
+	SelectNode
 	parse(p *Parser, skipper SelectSkipper,
 		char rune, start, end int, input []rune) (int, error)
 }
@@ -25,7 +27,7 @@ type Select struct {
 	Container
 	varname    string
 	ChoicesMap map[string]Node
-	Choices    []Choice
+	choices    []Choice
 	Other      Node
 }
 
@@ -33,30 +35,30 @@ func newSelect(parent Node, varname string) *Select {
 	nd := &Select{
 		varname:    varname,
 		ChoicesMap: make(map[string]Node, 5),
-		Choices:    make([]Choice, 0, 5),
+		choices:    make([]Choice, 0, 5),
 	}
-	parent.Add(nd)
+	AddChild(parent, nd)
 	return nd
 }
 
-// sort Choices
+// sort choices
 func (s *Select) Len() int {
-	return len(s.Choices)
+	return len(s.choices)
 }
 
-// sort Choices
+// sort choices
 func (s *Select) Swap(i, j int) {
-	s.Choices[i], s.Choices[j] = s.Choices[j], s.Choices[i]
+	s.choices[i], s.choices[j] = s.choices[j], s.choices[i]
 }
 
-// sort Choices
+// sort choices
 func (s *Select) Less(i, j int) bool {
-	return s.Choices[i].Key < s.Choices[j].Key
+	return s.choices[i].Key < s.choices[j].Key
 }
 
 func (nd *Select) addChoice(key string, choice Node) {
 	nd.ChoicesMap[key] = choice
-	nd.Choices = append(nd.Choices, Choice{Key: key, Node: choice})
+	nd.choices = append(nd.choices, Choice{Key: key, Node: choice})
 }
 
 func (nd *Select) parse(p *Parser, skipper SelectSkipper,
@@ -107,8 +109,9 @@ func (nd *Select) parse(p *Parser, skipper SelectSkipper,
 	return pos, nil
 }
 
-func (nd *Select) Varname() string { return nd.varname }
-func (nd *Select) Type() string    { return "select" }
+func (nd *Select) Varname() string   { return nd.varname }
+func (nd *Select) Type() string      { return "select" }
+func (nd *Select) Choices() []Choice { return nd.choices }
 
 // It will falls back to the "other" choice if :
 // - its key can't be found in the given map

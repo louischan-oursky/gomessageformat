@@ -83,8 +83,8 @@ func parseLiteral(parent Node, start, end int, input []rune) {
 	}
 
 	child := &Literal{Content: content}
-	if sn, ok := parent.(Varnamer); ok {
+	if sn, ok := parent.(SelectNode); ok {
 		child.Varname = sn.Varname()
 	}
-	parent.Add(child)
+	AddChild(parent, child)
 }
