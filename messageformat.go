@@ -15,6 +15,12 @@ type MessageFormat struct {
 
 func (x *MessageFormat) Root() Node { return x.root }
 
+func (x *MessageFormat) ToString() (string, error) {
+	var buf bytes.Buffer
+	err := x.root.ToString(&buf)
+	return buf.String(), err
+}
+
 func (x *MessageFormat) Format() (string, error) {
 	return x.FormatData(nil)
 }
@@ -22,10 +28,7 @@ func (x *MessageFormat) Format() (string, error) {
 func (x *MessageFormat) FormatData(data Data) (string, error) {
 	var buf bytes.Buffer
 	err := x.root.Format(x, &buf, data, "")
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	return buf.String(), err
 }
 
 func (x *MessageFormat) getNamedKey(value interface{}, ordinal bool) (string, error) {

@@ -19,11 +19,16 @@ func (s Equals) Len() int           { return len(s) }
 func (s Equals) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s Equals) Less(i, j int) bool { return s[i].Key < s[j].Key }
 
+type equals interface {
+	Equals() Equals
+	Offset() int
+}
+
 type Plural struct {
 	Select
 	EqualsMap map[float64]Node
-	Equals    Equals
-	Offset    int
+	equals    Equals
+	offset    int
 }
 
 func newPlural(parent Node, varname string) *Plural {
@@ -34,13 +39,15 @@ func newPlural(parent Node, varname string) *Plural {
 			choices:    make([]Choice, 0, 5),
 		},
 		EqualsMap: make(map[float64]Node, 0),
-		Equals:    make(Equals, 0, 5),
+		equals:    make(Equals, 0, 5),
 	}
 	AddChild(parent, nd)
 	return nd
 }
 
-func (nd *Plural) Type() string { return "plural" }
+func (nd *Plural) Type() string   { return "plural" }
+func (nd *Plural) Equals() Equals { return nd.equals }
+func (nd *Plural) Offset() int    { return nd.offset }
 
 // sort choices
 func (s *Plural) Less(i, j int) bool {
@@ -49,7 +56,7 @@ func (s *Plural) Less(i, j int) bool {
 
 func (nd *Plural) addEqual(f64 float64, choice Node) {
 	nd.EqualsMap[f64] = choice
-	nd.Equals = append(nd.Equals, Equal{Key: f64, Node: choice})
+	nd.equals = append(nd.equals, Equal{Key: f64, Node: choice})
 }
 
 func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
@@ -77,7 +84,7 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 				return j, err
 			}
 
-			nd.Offset = offset
+			nd.offset = offset
 
 			if isWhitespace(c) {
 				j++
@@ -104,7 +111,7 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 			}
 			nd.addEqual(f64, choice)
 		} else if key == "other" {
-			nd.Other = choice
+			nd.other = choice
 		} else {
 			skip, err := skipper.Skip(key)
 			if err != nil {
@@ -121,12 +128,17 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 		}
 	}
 
-	if nd.Other == nil {
+	if nd.other == nil {
 		return pos, errors.New("MissingMandatoryChoice")
 	}
 
-	sort.Sort(nd.Equals)
+	nd.choicesUnsorted = append(nd.choicesUnsorted, nd.choices...)
+	sort.Sort(nd.equals)
 	return pos, nil
+}
+
+func (nd *Plural) ToString(output *bytes.Buffer) error {
+	return selectNodeToString(nd, output)
 }
 
 // It will returns an error if :
@@ -138,7 +150,7 @@ func (nd *Plural) parse(p *Parser, skipper SelectSkipper,
 // - the computed named key (MessageFormat.getNamedKey) is not a key of the given map
 func (nd *Plural) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ string) error {
 	key := nd.Varname()
-	offset := nd.Offset
+	offset := nd.offset
 
 	value, err := data.ValueStr(key)
 	if err != nil {
@@ -205,7 +217,7 @@ func (nd *Plural) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ s
 	}
 
 	if choice == nil {
-		choice = nd.Other
+		choice = nd.other
 	}
 	return choice.Format(mf, output, data, value)
 }

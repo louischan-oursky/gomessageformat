@@ -12,6 +12,19 @@ type Var struct {
 
 func (nd *Var) Type() string { return "var" }
 
+func (nd *Var) ToString(output *bytes.Buffer) (err error) {
+	_, err = output.WriteRune(OpenChar)
+	if err != nil {
+		return
+	}
+	_, err = output.WriteString(nd.Varname)
+	if err != nil {
+		return
+	}
+	_, err = output.WriteRune(CloseChar)
+	return
+}
+
 func (nd *Var) Format(_ *MessageFormat, output *bytes.Buffer, data Data, value string) (err error) {
 	if value == "" {
 		value, err = data.ValueStr(nd.Varname)

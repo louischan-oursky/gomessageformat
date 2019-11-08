@@ -39,6 +39,7 @@ func ParsePluralWithData(culture language.Tag, input string, data interface{}) (
 
 type Node interface {
 	Type() string
+	ToString(output *bytes.Buffer) error
 	Culture() language.Tag
 	Complexity() Complexity
 	Data() interface{}
@@ -146,6 +147,16 @@ func (nd *Container) addChild(child Node) {
 func AddChild(parent, child Node) {
 	child.setParent(parent)
 	parent.addChild(child)
+}
+
+func (nd *Container) ToString(output *bytes.Buffer) (err error) {
+	for _, child := range nd.children {
+		err = child.ToString(output)
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 func (nd *Container) Format(mf *MessageFormat, output *bytes.Buffer, data Data, pound string) error {

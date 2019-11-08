@@ -12,17 +12,34 @@ type Literal struct {
 
 func (nd *Literal) Type() string { return "literal" }
 
-func (nd *Literal) Format(_ *MessageFormat, output *bytes.Buffer, data Data, pound string) error {
+func (nd *Literal) ToString(output *bytes.Buffer) (err error) {
 	for _, c := range nd.Content {
 		if c != "" {
-			output.WriteString(c)
-		} else if pound != "" {
-			output.WriteString(pound)
+			_, err = output.WriteString(c)
 		} else {
-			output.WriteRune(PoundChar)
+			_, err = output.WriteRune(PoundChar)
+		}
+		if err != nil {
+			return
 		}
 	}
-	return nil
+	return
+}
+
+func (nd *Literal) Format(_ *MessageFormat, output *bytes.Buffer, data Data, pound string) (err error) {
+	for _, c := range nd.Content {
+		if c != "" {
+			_, err = output.WriteString(c)
+		} else if pound != "" {
+			_, err = output.WriteString(pound)
+		} else {
+			_, err = output.WriteRune(PoundChar)
+		}
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
 func parseLiteral(parent Node, start, end int, input []rune) {

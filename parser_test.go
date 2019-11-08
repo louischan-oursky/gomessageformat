@@ -15,6 +15,32 @@ type Expectation struct {
 	output string
 }
 
+type toStringTest struct {
+	input    string
+	expected string
+}
+
+func doTostringTest(t *testing.T, data toStringTest) {
+	if o, err := New(); err != nil {
+		t.Errorf("`%s` threw <%s>", data.input, err)
+	} else {
+		mf, err := o.Parse(data.input, nil)
+
+		if err != nil {
+			t.Errorf("`%s` threw <%s>", data.input, err)
+		} else {
+			result, err := mf.ToString()
+			if err != nil {
+				t.Errorf("`%s` threw <%s>", data.input, err)
+			} else if result != data.expected {
+				t.Errorf("Expecting <%v> but got <%v>", data.expected, result)
+			} else if testing.Verbose() {
+				fmt.Printf("- Got expected value <%s>\n", result)
+			}
+		}
+	}
+}
+
 func doTest(t *testing.T, data Test) {
 	if o, err := New(); err != nil {
 		t.Errorf("`%s` threw <%s>", data.input, err)

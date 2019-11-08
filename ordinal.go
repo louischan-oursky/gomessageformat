@@ -29,6 +29,10 @@ func (s *Ordinal) Less(i, j int) bool {
 	return pluralForms[s.choices[i].Key] < pluralForms[s.choices[j].Key]
 }
 
+func (nd *Ordinal) ToString(output *bytes.Buffer) error {
+	return selectNodeToString(nd, output)
+}
+
 // It will returns an error if :
 // - the associated value can't be convert to string or to an int (i.e. bool, ...)
 // - the pluralFunc is not defined (MessageFormat.getNamedKey)
@@ -65,7 +69,7 @@ func (nd *Ordinal) Format(mf *MessageFormat, output *bytes.Buffer, data Data, _ 
 	}
 
 	if choice == nil {
-		choice = nd.Other
+		choice = nd.other
 	}
 	return choice.Format(mf, output, data, value)
 }
