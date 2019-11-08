@@ -9,11 +9,13 @@ import (
 )
 
 type MessageFormat struct {
-	root   Node
-	plural pluralFunc
+	root      Node
+	hasSelect bool
+	plural    pluralFunc
 }
 
-func (x *MessageFormat) Root() Node { return x.root }
+func (x *MessageFormat) Root() Node      { return x.root }
+func (x *MessageFormat) HasSelect() bool { return x.hasSelect }
 
 func (x *MessageFormat) ToString() (string, error) {
 	var buf bytes.Buffer

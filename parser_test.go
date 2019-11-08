@@ -16,8 +16,9 @@ type Expectation struct {
 }
 
 type toStringTest struct {
-	input    string
-	expected string
+	input     string
+	expected  string
+	hasSelect bool
 }
 
 func doTostringTest(t *testing.T, data toStringTest) {
@@ -34,6 +35,8 @@ func doTostringTest(t *testing.T, data toStringTest) {
 				t.Errorf("`%s` threw <%s>", data.input, err)
 			} else if result != data.expected {
 				t.Errorf("Expecting <%v> but got <%v>", data.expected, result)
+			} else if mf.HasSelect() != data.hasSelect {
+				t.Errorf("Expecting has_select=<%v> but got <%v>", data.hasSelect, mf.HasSelect())
 			} else if testing.Verbose() {
 				fmt.Printf("- Got expected value <%s>\n", result)
 			}

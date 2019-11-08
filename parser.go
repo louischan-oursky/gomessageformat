@@ -30,9 +30,11 @@ func (x *Parser) Parse(input string, data interface{}) (*MessageFormat, error) {
 	runes := []rune(input)
 	pos, end := 0, len(runes)
 
+	var hasSelect bool
+
 	root := &Root{culture: x.culture, data: data}
 	for pos < end {
-		i, level, err := x.parse(pos, end, runes, root)
+		i, level, err := x.parse(pos, end, runes, root, &hasSelect)
 		if err != nil {
 			return nil, parseError{err.Error(), i}
 		} else if 0 != level {
@@ -41,10 +43,10 @@ func (x *Parser) Parse(input string, data interface{}) (*MessageFormat, error) {
 
 		pos = i
 	}
-	return &MessageFormat{root, x.plural}, nil
+	return &MessageFormat{root, hasSelect, x.plural}, nil
 }
 
-func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, error) {
+func (x *Parser) parseNode(parent Node, start, end int, input []rune, hasSelect *bool) (int, error) {
 	varname, char, pos, err := readVar(start, end, input)
 	if err != nil {
 		return pos, err
@@ -90,11 +92,14 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune) (int, erro
 		return pos, fmt.Errorf("UnbalancedBraces")
 	}
 
+	if hasSelect != nil {
+		*hasSelect = true
+	}
 	sort.Sort(sp)
 	return pos, nil
 }
 
-func (x *Parser) parse(start, end int, input []rune, nd Node) (int, int, error) {
+func (x *Parser) parse(start, end int, input []rune, nd Node, hasSelect *bool) (int, int, error) {
 	pos := start
 	level := 0
 	escaped := false
@@ -128,7 +133,7 @@ loop:
 					parseLiteral(nd, start, pos, input)
 				}
 
-				i, err := x.parseNode(nd, pos+1, end, input)
+				i, err := x.parseNode(nd, pos+1, end, input, hasSelect)
 				if err != nil {
 					return i, level, err
 				}

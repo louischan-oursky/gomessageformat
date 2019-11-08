@@ -286,7 +286,7 @@ func (p *Parser) readChoice(parent Node, char rune, pos, end int, input []rune) 
 	}
 
 	choice := newContainer(parent)
-	pos, _, err := p.parse(pos+1, end, input, choice)
+	pos, _, err := p.parse(pos+1, end, input, choice, nil)
 	if err != nil {
 		return nil, char, pos, err
 	}
