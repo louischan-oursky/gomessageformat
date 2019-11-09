@@ -24,6 +24,12 @@ type pluralFunc func(interface{}, bool) string
 type Parser struct {
 	culture language.Tag
 	plural  pluralFunc
+	noSkip  bool
+}
+
+// SkipForPlural must be called before Parse.
+func (x *Parser) SkipForPlural(skip bool) {
+	x.noSkip = !skip
 }
 
 func (x *Parser) Parse(input string, data interface{}) (*MessageFormat, error) {
@@ -65,17 +71,20 @@ func (x *Parser) parseNode(parent Node, start, end int, input []rune, hasSelect 
 	}
 
 	var sp selectParser
-	var skipper SelectSkipper
+	var skipper SelectSkipper = NothingSkipper{}
 	switch ctype {
 	case "select":
 		sp = newSelect(parent, varname)
-		skipper = NothingSkipper{}
 	case "selectordinal":
 		sp = newOrdinal(parent, varname)
-		skipper, err = NewPluralSkipper(x.culture, true)
+		if !x.noSkip {
+			skipper, err = NewPluralSkipper(x.culture, true)
+		}
 	case "plural":
 		sp = newPlural(parent, varname)
-		skipper, err = NewPluralSkipper(x.culture, false)
+		if !x.noSkip {
+			skipper, err = NewPluralSkipper(x.culture, false)
+		}
 	default:
 		return pos, fmt.Errorf("UnknownType: `%s`", ctype)
 	}
