@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/empirefox/makeplural/plural"
+	"github.com/louischan-oursky/gomakeplural/plural"
 	"golang.org/x/text/language"
 )
 

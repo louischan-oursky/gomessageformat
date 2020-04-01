@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/empirefox/makeplural/plural"
+	"github.com/louischan-oursky/gomakeplural/plural"
 	"golang.org/x/text/language"
 )
 
